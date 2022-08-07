@@ -1,0 +1,113 @@
+<html>
+<head>
+    <script>
+        const socket = new WebSocket("ws://localhost:8080/");
+
+        function handleTrain(train) {
+            var out = "";
+            if (train.length > 0) {
+                train.forEach(berry => {
+                    let src = "";
+                    switch (berry) {
+                        case 0:
+                            src = "assets/img/sg_norm.png";
+                            break;
+                        case 1:
+                            src = "assets/img/s_norm.gif";
+                            break;
+                    }
+                    out += `<img src="${src}" class="berryAni" height="60px" />`;
+                })
+            }
+            return out;
+        }
+
+        socket.onopen = function(event) {
+            console.log("Connected to server");
+        };
+
+        socket.onmessage = function(event) {
+            try {
+                let data = JSON.parse(event.data);
+                console.log(JSON.stringify(data));
+                document.getElementById("deathCount").innerHTML = data.deathCount;
+                document.getElementById("strawberryCount").innerHTML = data.strawberryCount;
+                document.getElementById("train").innerHTML = handleTrain(data.berryTrain);
+            } catch (err) {
+                console.log(`Error parsing JSON: ${err}`);
+            }  
+        };
+    </script>
+    <style>
+        @font-face {
+            src: url("assets/font/font.otf");
+            font-family: "main";
+        }
+
+        body {
+            font-family: "main";
+            background-color: transparent;
+            font-size: 30px;
+        }
+
+        .statContainer {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background-color: rgba(0,0,0,0.5);
+            
+        }
+        .interior {
+            margin: 30px 30px 30px 30px;
+        }
+
+        .stat {
+            position: relative;
+            left: 0;
+        }
+
+        .berryTrain {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            background-color: rgba(0,0,0,0.5);
+            width: 300px;
+            height: 100px;
+        }
+
+        .berryAni {
+            animation: berry 1s linear infinite;
+        }
+
+        @keyframes berry {
+            0% {
+                margin-bottom: 0px;
+            }
+            100% {
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="statContainer">
+        <div class="interior">
+            <div class="stat">
+                <img src="assets/img/skull.png" alt="skull" height="60px" style="vertical-align:middle;"/>
+                <span style="font-size: 60px; vertical-align: middle;" id="deathCount">0</span>
+            </div>
+            <div class="stat">
+                <img src="assets/img/s_norm.gif" alt="strawberry" height="60px" style="vertical-align:middle;"/>
+                <span style="font-size: 60px; vertical-align: middle;" id="strawberryCount">0</span>
+            </div>
+        </div>
+    </div>
+    <div class="berryTrain">
+        <div class="interior">
+            <div id="train">
+
+            </div>
+        </div>
+    </div>
+</body>
+</html>
