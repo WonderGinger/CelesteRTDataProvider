@@ -10,10 +10,13 @@
                     let src = "";
                     switch (berry) {
                         case 0:
-                            src = "assets/img/sg_norm.png";
+                            src = "assets/img/g_norm.gif";
                             break;
                         case 1:
                             src = "assets/img/s_norm.gif";
+                            break;
+                        case 3:
+                            src = "assets/img/sg_norm.gif";
                             break;
                     }
                     out += `<img src="${src}" class="berryAni" height="60px" />`;
@@ -53,9 +56,7 @@
         .statContainer {
             position: absolute;
             bottom: 0;
-            right: 0;
-            background-color: rgba(0,0,0,0.5);
-            
+            right: 0;      
         }
         .interior {
             margin: 30px 30px 30px 30px;
@@ -70,23 +71,30 @@
             position: absolute;
             bottom: 0;
             left: 0;
-            background-color: rgba(0,0,0,0.5);
-            width: 300px;
+            margin-bottom: 40px;
+            width: fit-content;
             height: 100px;
         }
 
         .berryAni {
-            animation: berry 1s linear infinite;
+            animation: berry 1.5s linear infinite;
+            position: relative;
+            display: inline-block;
+            top: 0;
         }
 
         @keyframes berry {
             0% {
-                margin-bottom: 0px;
+                padding-top: 10px;
+            }
+            50% {
+                padding-top: 0;
             }
             100% {
-                margin-bottom: 20px;
+                padding-top: 10px;
             }
         }
+
     </style>
 </head>
 <body>

@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Collections;
 using FMOD.Studio;
 using System.Collections.Generic;
+using MonoMod.Utils;
 
 namespace Celeste.Mod.CelesteRTDataProvider
 {
@@ -30,10 +31,16 @@ namespace Celeste.Mod.CelesteRTDataProvider
         public int deathCount = 0;
         public int strawberryCount = 0;
         public List<int> berryTrain = new List<int>();
+        public List<int> roomBerries = new List<int>();
 
         public CelesteRTDataProviderModule()
         {
             Instance = this;
+        }
+
+        string intListToArray(List<int> list)
+        {
+            return $"[{string.Join(",", list)}]";
         }
 
         public void clientUpdate()
@@ -41,8 +48,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
             // Send JSON with new updated stats to all connected clients
             try
             {
-                Console.WriteLine($"ClientUpdate: Sending message to client: {{\"deathCount\": {deathCount}, \"strawberryCount\": {strawberryCount}, \"berryTrain\": [{string.Join(",", berryTrain)}]}}");
-                server.sendMessage($"{{\"deathCount\": {deathCount}, \"strawberryCount\": {strawberryCount}, \"berryTrain\": [{string.Join(",", berryTrain)}]}}");
+                server.sendMessage($"{{\"deathCount\": {deathCount}, \"strawberryCount\": {strawberryCount}, \"berryTrain\": {intListToArray(berryTrain)}, \"berriesInRoom\": {intListToArray(roomBerries)}}}");
             }
             catch
             {
@@ -77,20 +83,25 @@ namespace Celeste.Mod.CelesteRTDataProvider
             switch (follower.Entity)
             {
                 case Strawberry:
-                    string id = "0";
-                    if (!(follower.Entity as Strawberry).Golden && !(follower.Entity as Strawberry).Moon)
+                    int id = 0;
+                    DynamicData strawbDyn = new DynamicData((follower.Entity as Strawberry));
+                    if (strawbDyn.Get<bool>("isGhostBerry"))
                     {
-                        id = "1";
-                    } else if ((follower.Entity as Strawberry).Moon)
-                    {
-                        id = "2";
+                        id = 0;
                     }
-                    /*
-                    if ((follower.Entity as Strawberry).Winged)
+                    if (!strawbDyn.Get<bool>("Golden") && !strawbDyn.Get<bool>("Moon") && !strawbDyn.Get<bool>("isGhostBerry"))
                     {
-                        id += "2"; // Implement room overlay in v0.2.0
-                    }*/
-berryTrain.Add(Int32.Parse(id));
+                        id = 1;
+                    }
+                    if (strawbDyn.Get<bool>("Moon"))
+                    {
+                        id = 2;
+                    }
+                    if (strawbDyn.Get<bool>("Golden"))
+                    {
+                        id = 3;
+                    }
+                    berryTrain.Add(id);
                     clientUpdate();
                     break;
             }
@@ -102,21 +113,21 @@ berryTrain.Add(Int32.Parse(id));
             switch (follower.Entity)
             {
                 case Strawberry:
-                    string id = "0";
-                    if (!(follower.Entity as Strawberry).Golden && !(follower.Entity as Strawberry).Moon)
+                    int id = 0;
+                    DynamicData strawbDyn = new DynamicData((follower.Entity as Strawberry)); ;
+                    if (!strawbDyn.Get<bool>("Golden") && !strawbDyn.Get<bool>("Moon") && !strawbDyn.Get<bool>("isGhostBerry"))
                     {
-                        id = "1";
+                        id = 1;
                     }
-                    else if ((follower.Entity as Strawberry).Moon)
+                    if (strawbDyn.Get<bool>("Moon"))
                     {
-                        id = "2";
+                        id = 2;
                     }
-                    /*
-                    if ((follower.Entity as Strawberry).Winged)
+                    if (strawbDyn.Get<bool>("Golden"))
                     {
-                        id += "2"; // Implement room overlay in v0.2.0
-                    }*/
-                    berryTrain.Remove(Int32.Parse(id));
+                        id = 3;
+                    }
+                    berryTrain.Add(id);
                     clientUpdate();
                     break;
             }
@@ -143,6 +154,36 @@ berryTrain.Add(Int32.Parse(id));
             orig(self);
         }
 
+        private void Strawberry_Added(On.Celeste.Strawberry.orig_Added orig, Strawberry self, Monocle.Scene scene)
+        {
+            DynamicData strawbDyn = new DynamicData(self);
+            string id = "1";
+            if (!strawbDyn.Get<bool>("Golden") && !strawbDyn.Get<bool>("Moon") && !strawbDyn.Get<bool>("isGhostBerry"))
+            {
+                id = "2";
+            }
+            if (strawbDyn.Get<bool>("Moon"))
+            {
+                id = "3";
+            }
+            if (strawbDyn.Get<bool>("Golden"))
+            {
+                id = "4";
+            }
+            if (strawbDyn.Get<bool>("Winged"))
+            {
+                id += "1";
+            }
+            roomBerries.Add(Int32.Parse(id));
+            clientUpdate();
+            orig(self, scene);
+        }
+
+        private void LevelEnter_Go(On.Celeste.LevelEnter.orig_Go orig, Session session, bool fromSaveData)
+        {
+            roomBerries = new List<int>();
+            orig(session, fromSaveData);
+        }
 
         public override void Load()
         {
@@ -154,6 +195,8 @@ berryTrain.Add(Int32.Parse(id));
             On.Celeste.Leader.GainFollower += Leader_GainFollower;
             On.Celeste.Leader.LoseFollower += Leader_LoseFollower;
             On.Celeste.Leader.LoseFollowers += Leader_LoseFollowers;
+            On.Celeste.Strawberry.Added += Strawberry_Added;
+            On.Celeste.LevelEnter.Go += LevelEnter_Go;
         }
 
         public override void Unload()
@@ -164,6 +207,8 @@ berryTrain.Add(Int32.Parse(id));
             On.Celeste.Leader.GainFollower -= Leader_GainFollower;
             On.Celeste.Leader.LoseFollower -= Leader_LoseFollower;
             On.Celeste.Leader.LoseFollowers -= Leader_LoseFollowers;
+            On.Celeste.Strawberry.Added -= Strawberry_Added;
+            On.Celeste.LevelEnter.Go -= LevelEnter_Go;
             serverInstance.Dispose();
         }
     }

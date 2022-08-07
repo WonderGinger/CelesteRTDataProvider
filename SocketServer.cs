@@ -15,8 +15,6 @@ using System.Text.RegularExpressions;
 
 namespace Celeste.Mod.CelesteRTDataProvider
 {
-    
-
     public class websocketServer
     {
         public NetworkStream stream = null;
@@ -125,8 +123,6 @@ namespace Celeste.Mod.CelesteRTDataProvider
 
             }
         }
-
-
 
         public void startServer(int port)
         {
