@@ -190,6 +190,12 @@ namespace Celeste.Mod.CelesteRTDataProvider
             clientUpdate();
             orig(self, scene);
         }
+
+        private void Level_OnTransitionTo(Level level, LevelData next, Microsoft.Xna.Framework.Vector2 direction)
+        {
+            gameFeed["roomBerries"] = new List<int>();
+            clientUpdate();
+        }
         private void resetFeed()
         {
             // Init all variables
@@ -210,7 +216,10 @@ namespace Celeste.Mod.CelesteRTDataProvider
             On.Celeste.Leader.LoseFollower += Leader_LoseFollower;
             On.Celeste.Leader.LoseFollowers += Leader_LoseFollowers;
             On.Celeste.Strawberry.Added += Strawberry_Added;
+            Everest.Events.Level.OnTransitionTo += Level_OnTransitionTo;
         }
+
+        
 
         public override void Unload()
         {
@@ -221,6 +230,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
             On.Celeste.Leader.LoseFollower -= Leader_LoseFollower;
             On.Celeste.Leader.LoseFollowers -= Leader_LoseFollowers;
             On.Celeste.Strawberry.Added -= Strawberry_Added;
+            Everest.Events.Level.OnTransitionTo -= Level_OnTransitionTo;
             serverInstance.Dispose();
         }
     }
