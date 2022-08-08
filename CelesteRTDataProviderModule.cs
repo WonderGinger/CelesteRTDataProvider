@@ -98,11 +98,11 @@ namespace Celeste.Mod.CelesteRTDataProvider
             try
             {
                 server.sendMessage(Serialize(gameFeed));
+                server.sendMessage("fuck shit fuck");
             }
-            catch
+            catch (Exception ex)
             {
-                Console.WriteLine("No client is connected, dumbass.");
-                Console.WriteLine("Who the fuck are you trying to send these messages to???");
+                Console.WriteLine($"[CelesteRTDataMod] [clientUpdate] [error] an error has occured with clientUpdate: {ex}");
             }
         }
 
@@ -163,7 +163,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
             // Use <string> name to add to json feed.
 
             list.Add(id);
-            gameFeed[name] = list;
+            gameFeed[name] = intListToArray(list);
         }
 
         public void removeListing(int id, List<int> list, string name)
@@ -174,7 +174,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
             try
             {
                 list.Remove(id);
-                gameFeed[name] = list;
+                gameFeed[name] = intListToArray(list);
             } catch
             {
                 Console.WriteLine("err: removeListing failed. Continuing...");
@@ -185,7 +185,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
         public void resetListing(List<int> list, string name)
         {
             list = new List<int>();
-            gameFeed[name] = list;   
+            gameFeed[name] = intListToArray(list);   
         }
 
         private void Leader_LoseFollower(On.Celeste.Leader.orig_LoseFollower orig, Leader self, Follower follower)
