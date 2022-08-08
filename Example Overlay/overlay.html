@@ -3,23 +3,11 @@
     <script>
         const socket = new WebSocket("ws://localhost:8080/");
 
-        function handleTrain(train) {
+        function createBerries(train) {
             var out = "";
             if (train.length > 0) {
                 train.forEach(berry => {
-                    let src = "";
-                    switch (berry) {
-                        case 0:
-                            src = "assets/img/g_norm.gif";
-                            break;
-                        case 1:
-                            src = "assets/img/s_norm.gif";
-                            break;
-                        case 3:
-                            src = "assets/img/sg_norm.gif";
-                            break;
-                    }
-                    out += `<img src="${src}" class="berryAni" height="60px" />`;
+                    out += `<img src="assets/img/berries/${berry}.gif" class="berryAni" height="60px" />`;
                 })
             }
             return out;
@@ -30,16 +18,19 @@
         };
 
         socket.onmessage = function(event) {
-            try {
-                let data = JSON.parse(event.data);
-                console.log(JSON.stringify(data));
+            let data = JSON.parse(event.data);
+            console.log(data);
+            if (data !== {"strawberryCount":0,"deathCount":0,"roomBerries":[],"berryTrain":[]}) {
                 document.getElementById("deathCount").innerHTML = data.deathCount;
                 document.getElementById("strawberryCount").innerHTML = data.strawberryCount;
-                document.getElementById("berryTrain").innerHTML = handleTrain(data.berryTrain);
-            } catch (err) {
-                console.log(`Error parsing JSON: ${err}`);
-                console.log(event.data);
-            }  
+                document.getElementById("train").innerHTML = createBerries(data.berryTrain);
+                document.getElementById("berries").innerHTML = createBerries(data.roomBerries);
+            } else {
+                document.getElementById("deathCount").innerHTML = "0";
+                document.getElementById("strawberryCount").innerHTML = "0";
+                document.getElementById("train").innerHTML = "";
+                document.getElementById("berries").innerHTML = createBerries(data.roomBerries);
+            }
         };
     </script>
     <style>
@@ -78,22 +69,15 @@
         }
 
         .berryAni {
-            animation: berry 1.5s linear infinite;
             position: relative;
             display: inline-block;
             top: 0;
         }
 
-        @keyframes berry {
-            0% {
-                padding-top: 10px;
-            }
-            50% {
-                padding-top: 0;
-            }
-            100% {
-                padding-top: 10px;
-            }
+        .roomBerries {
+            position: absolute;
+            top: 0;
+            right: 0;
         }
 
     </style>
@@ -106,16 +90,19 @@
                 <span style="font-size: 60px; vertical-align: middle;" id="deathCount">0</span>
             </div>
             <div class="stat">
-                <img src="assets/img/s_norm.gif" alt="strawberry" height="60px" style="vertical-align:middle;"/>
+                <img src="assets/img/berries/2.gif" alt="strawberry" height="60px" style="vertical-align:middle;"/>
                 <span style="font-size: 60px; vertical-align: middle;" id="strawberryCount">0</span>
             </div>
         </div>
     </div>
     <div class="berryTrain">
         <div class="interior">
-            <div id="train">
-
-            </div>
+            <div id="train"></div>
+        </div>
+    </div>
+    <div class="roomBerries">
+        <div class="interior">
+            <div id="berries" />
         </div>
     </div>
 </body>
