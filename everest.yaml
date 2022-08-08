@@ -1,6 +1,6 @@
 - Name: CelesteRTDataProvider
-  Version: 0.1.0
-  DLL: bin/CelesteRTDataProvider.dll
+  Version: 0.2.0
+  DLL: CelesteRTDataProvider.dll
   Dependencies:
     - Name: Everest
       Version: 1.2781.0
