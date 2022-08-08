@@ -24,6 +24,7 @@
         <PackageReference Include="Microsoft.AspNet.WebHooks.Custom" Version="1.2.2" />
         <PackageReference Include="Microsoft.AspNet.WebHooks.Receivers" Version="1.2.2" />
         <PackageReference Include="MonoMod.RuntimeDetour" Version="21.01.11.01" PrivateAssets="all" ExcludeAssets="runtime" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     </ItemGroup>
 
     <ItemGroup>

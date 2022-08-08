@@ -9,51 +9,12 @@ SOFTWARE.*/
 using System;
 using System.Threading.Tasks;
 using System.Collections;
-using FMOD.Studio;
 using System.Collections.Generic;
 using MonoMod.Utils;
-using System.Runtime.Serialization.Json;
-using System.IO;
-using System.Text;
-using System.Runtime.Serialization;
+using Newtonsoft.Json;
 
 namespace Celeste.Mod.CelesteRTDataProvider
 {
-
-    // New in 0.2.0: Copied and pasted stackoverflow code for actually usable json array
-    // Source: https://stackoverflow.com/q/4861138
-
-    [Serializable]
-    public class Json<K, V> : ISerializable
-    {
-        Dictionary<K, V> dict = new Dictionary<K, V>();
-
-        public Json() { }
-
-        protected Json(SerializationInfo info, StreamingContext context)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            foreach (K key in dict.Keys)
-            {
-                info.AddValue(key.ToString(), dict[key]);
-            }
-        }
-
-        public void Add(K key, V value)
-        {
-            dict.Add(key, value);
-        }
-
-        public V this[K index]
-        {
-            set { dict[index] = value; }
-            get { return dict[index]; }
-        }
-    }
 
     public class CelesteRTDataProviderModule : EverestModule
     {
@@ -67,37 +28,21 @@ namespace Celeste.Mod.CelesteRTDataProvider
 
         public websocketServer server = new websocketServer();
         public Task serverInstance = null;
-
-        // Still have to have the lists as lists, unfortunately :p
-        public List<int> roomBerries = new List<int>();
-        public List<int> berryTrain = new List<int>();
         
-        public Json<String, Object> gameFeed = new Json<String, Object>();
+        public Dictionary<String, Object> gameFeed = new Dictionary<String, Object>();
 
         public CelesteRTDataProviderModule()
         {
             Instance = this;
         }
 
-        public static String Serialize(Object data)
-        {
-            var serializer = new DataContractJsonSerializer(data.GetType());
-            var ms = new MemoryStream();
-            serializer.WriteObject(ms, data);
-            return Encoding.UTF8.GetString(ms.ToArray());
-        }
-
-        string intListToArray(List<int> list)
-        {
-            return $"[{string.Join(",", list)}]";
-        }
-
         public void clientUpdate()
         {
             // Send JSON with new updated stats to all connected clients
+            // New in v0.2.0: use Newtonsoft.Json module to convert to string.
             try
             {
-                server.sendMessage(Serialize(gameFeed));
+                server.sendMessage(JsonConvert.SerializeObject(gameFeed));
             }
             catch (Exception ex)
             {
@@ -149,42 +94,32 @@ namespace Celeste.Mod.CelesteRTDataProvider
                     {
                         id = 3;
                     }
-                    addListing(id, berryTrain, "berryTrain");
+                    addListing(id, "berryTrain");
                     clientUpdate();
                     break;
             }
             orig(self, follower);
         }
 
-        public void addListing(int id, List<int> list, string name)
+        public void addListing(int id, string name)
         {
-            // Add <int> id to List<int> list.
-            // Use <string> name to add to json feed.
-
+            List<int> list = (List<int>)gameFeed[name];
             list.Add(id);
-            gameFeed[name] = intListToArray(list);
+            gameFeed[name] = list;
         }
 
-        public void removeListing(int id, List<int> list, string name)
+        public void removeListing(int id, string name)
         {
-            // Remove <int> id from List<int> list.
-            // Use <string> name to add to json feed.
-
             try
             {
+                List<int> list = (List<int>)gameFeed[name];
                 list.Remove(id);
-                gameFeed[name] = intListToArray(list);
+                gameFeed[name] = list;
             } catch
             {
                 Console.WriteLine("err: removeListing failed. Continuing...");
             }
             
-        }
-
-        public void resetListing(List<int> list, string name)
-        {
-            list = new List<int>();
-            gameFeed[name] = intListToArray(list);   
         }
 
         private void Leader_LoseFollower(On.Celeste.Leader.orig_LoseFollower orig, Leader self, Follower follower)
@@ -206,7 +141,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
                     {
                         id = 3;
                     }
-                    removeListing(id, berryTrain, "berryTrain");
+                    removeListing(id, "berryTrain");
                     clientUpdate();
                     break;
             }
@@ -215,9 +150,8 @@ namespace Celeste.Mod.CelesteRTDataProvider
 
         private void Leader_LoseFollowers(On.Celeste.Leader.orig_LoseFollowers orig, Leader self)
         {
-            resetListing(berryTrain, "berryTrain");
+            gameFeed["berryTrain"] = new List<int>();
             clientUpdate();
-
             orig(self);
         }
 
@@ -252,23 +186,17 @@ namespace Celeste.Mod.CelesteRTDataProvider
             {
                 id += "1";
             }
-            addListing(Int32.Parse(id), roomBerries, "roomBerries");
+            addListing(Int32.Parse(id), "roomBerries");
             clientUpdate();
             orig(self, scene);
         }
         private void resetFeed()
         {
-            // Init misc variables
+            // Init all variables
             gameFeed["strawberryCount"] = 0;
             gameFeed["deathCount"] = 0;
-
-            // Init room berries
-            roomBerries = new List<int>();
-            gameFeed["roomBerries"] = "[]";
-
-            // Init berry train
-            berryTrain = new List<int>();
-            gameFeed["berryTrain"] = "[]";
+            gameFeed["roomBerries"] = new List<int>();
+            gameFeed["berryTrain"] = new List<int>();
         }
 
         public override void Load()
