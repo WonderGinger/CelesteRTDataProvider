@@ -35,9 +35,10 @@
                 console.log(JSON.stringify(data));
                 document.getElementById("deathCount").innerHTML = data.deathCount;
                 document.getElementById("strawberryCount").innerHTML = data.strawberryCount;
-                document.getElementById("train").innerHTML = handleTrain(data.berryTrain);
+                document.getElementById("berryTrain").innerHTML = handleTrain(data.berryTrain);
             } catch (err) {
                 console.log(`Error parsing JSON: ${err}`);
+                console.log(event.data);
             }  
         };
     </script>

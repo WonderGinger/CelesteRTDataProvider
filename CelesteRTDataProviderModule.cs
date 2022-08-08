@@ -98,7 +98,6 @@ namespace Celeste.Mod.CelesteRTDataProvider
             try
             {
                 server.sendMessage(Serialize(gameFeed));
-                server.sendMessage("fuck shit fuck");
             }
             catch (Exception ex)
             {
