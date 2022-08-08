@@ -12,9 +12,49 @@ using System.Collections;
 using FMOD.Studio;
 using System.Collections.Generic;
 using MonoMod.Utils;
+using System.Runtime.Serialization.Json;
+using System.IO;
+using System.Text;
+using System.Runtime.Serialization;
 
 namespace Celeste.Mod.CelesteRTDataProvider
 {
+
+    // New in 0.2.0: Copied and pasted stackoverflow code for actually usable json array
+    // Source: https://stackoverflow.com/q/4861138
+
+    [Serializable]
+    public class Json<K, V> : ISerializable
+    {
+        Dictionary<K, V> dict = new Dictionary<K, V>();
+
+        public Json() { }
+
+        protected Json(SerializationInfo info, StreamingContext context)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            foreach (K key in dict.Keys)
+            {
+                info.AddValue(key.ToString(), dict[key]);
+            }
+        }
+
+        public void Add(K key, V value)
+        {
+            dict.Add(key, value);
+        }
+
+        public V this[K index]
+        {
+            set { dict[index] = value; }
+            get { return dict[index]; }
+        }
+    }
+
     public class CelesteRTDataProviderModule : EverestModule
     {
         public static CelesteRTDataProviderModule Instance { get; private set; }
@@ -28,14 +68,23 @@ namespace Celeste.Mod.CelesteRTDataProvider
         public websocketServer server = new websocketServer();
         public Task serverInstance = null;
 
-        public int deathCount = 0;
-        public int strawberryCount = 0;
-        public List<int> berryTrain = new List<int>();
+        // Still have to have the lists as lists, unfortunately :p
         public List<int> roomBerries = new List<int>();
+        public List<int> berryTrain = new List<int>();
+        
+        public Json<String, Object> gameFeed = new Json<String, Object>();
 
         public CelesteRTDataProviderModule()
         {
             Instance = this;
+        }
+
+        public static String Serialize(Object data)
+        {
+            var serializer = new DataContractJsonSerializer(data.GetType());
+            var ms = new MemoryStream();
+            serializer.WriteObject(ms, data);
+            return Encoding.UTF8.GetString(ms.ToArray());
         }
 
         string intListToArray(List<int> list)
@@ -48,7 +97,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
             // Send JSON with new updated stats to all connected clients
             try
             {
-                server.sendMessage($"{{\"deathCount\": {deathCount}, \"strawberryCount\": {strawberryCount}, \"berryTrain\": {intListToArray(berryTrain)}, \"berriesInRoom\": {intListToArray(roomBerries)}}}");
+                server.sendMessage(Serialize(gameFeed));
             }
             catch
             {
@@ -59,7 +108,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
 
         private void handlePlayerDeath(Player player)
         {
-            deathCount++;
+            gameFeed["deathCount"] = Int32.Parse(gameFeed["deathCount"].ToString()) + 1;
             clientUpdate();  
         }
 
@@ -68,7 +117,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
             // Handle new strawberries.
             // Source: https://github.com/EverestAPI/CelesteCollabUtils2/blob/master/Entities/StrawberryHooks.cs
 
-            strawberryCount++;
+            gameFeed["strawberryCount"] = Int32.Parse(gameFeed["strawberryCount"].ToString())+1;
             clientUpdate();
 
             IEnumerator origEnum = orig(self, collectIndex);
@@ -101,11 +150,42 @@ namespace Celeste.Mod.CelesteRTDataProvider
                     {
                         id = 3;
                     }
-                    berryTrain.Add(id);
+                    addListing(id, berryTrain, "berryTrain");
                     clientUpdate();
                     break;
             }
             orig(self, follower);
+        }
+
+        public void addListing(int id, List<int> list, string name)
+        {
+            // Add <int> id to List<int> list.
+            // Use <string> name to add to json feed.
+
+            list.Add(id);
+            gameFeed[name] = list;
+        }
+
+        public void removeListing(int id, List<int> list, string name)
+        {
+            // Remove <int> id from List<int> list.
+            // Use <string> name to add to json feed.
+
+            try
+            {
+                list.Remove(id);
+                gameFeed[name] = list;
+            } catch
+            {
+                Console.WriteLine("err: removeListing failed. Continuing...");
+            }
+            
+        }
+
+        public void resetListing(List<int> list, string name)
+        {
+            list = new List<int>();
+            gameFeed[name] = list;   
         }
 
         private void Leader_LoseFollower(On.Celeste.Leader.orig_LoseFollower orig, Leader self, Follower follower)
@@ -114,7 +194,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
             {
                 case Strawberry:
                     int id = 0;
-                    DynamicData strawbDyn = new DynamicData((follower.Entity as Strawberry)); ;
+                    DynamicData strawbDyn = new DynamicData((follower.Entity as Strawberry));
                     if (!strawbDyn.Get<bool>("Golden") && !strawbDyn.Get<bool>("Moon") && !strawbDyn.Get<bool>("isGhostBerry"))
                     {
                         id = 1;
@@ -127,7 +207,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
                     {
                         id = 3;
                     }
-                    berryTrain.Add(id);
+                    removeListing(id, berryTrain, "berryTrain");
                     clientUpdate();
                     break;
             }
@@ -136,8 +216,9 @@ namespace Celeste.Mod.CelesteRTDataProvider
 
         private void Leader_LoseFollowers(On.Celeste.Leader.orig_LoseFollowers orig, Leader self)
         {
-            berryTrain = new List<int>();
+            resetListing(berryTrain, "berryTrain");
             clientUpdate();
+
             orig(self);
         }
 
@@ -145,9 +226,7 @@ namespace Celeste.Mod.CelesteRTDataProvider
         private void AreaComplete_End(On.Celeste.AreaComplete.orig_End orig, AreaComplete self)
         {
             // Reset all stats on area completed
-            strawberryCount = 0;
-            deathCount = 0;
-            berryTrain = new List<int>();
+            resetFeed();
             clientUpdate();
 
             // Yield original functionality
@@ -174,20 +253,28 @@ namespace Celeste.Mod.CelesteRTDataProvider
             {
                 id += "1";
             }
-            roomBerries.Add(Int32.Parse(id));
+            addListing(Int32.Parse(id), roomBerries, "roomBerries");
             clientUpdate();
             orig(self, scene);
         }
-
-        private void LevelEnter_Go(On.Celeste.LevelEnter.orig_Go orig, Session session, bool fromSaveData)
+        private void resetFeed()
         {
+            // Init misc variables
+            gameFeed["strawberryCount"] = 0;
+            gameFeed["deathCount"] = 0;
+
+            // Init room berries
             roomBerries = new List<int>();
-            orig(session, fromSaveData);
+            gameFeed["roomBerries"] = "[]";
+
+            // Init berry train
+            berryTrain = new List<int>();
+            gameFeed["berryTrain"] = "[]";
         }
 
         public override void Load()
         {
-            
+            resetFeed();
             serverInstance = Task.Run(() => server.startServer(Settings.serverPort));
             Everest.Events.Player.OnDie += handlePlayerDeath;
             On.Celeste.Strawberry.CollectRoutine += onStrawberryCollectRoutine;
@@ -196,7 +283,6 @@ namespace Celeste.Mod.CelesteRTDataProvider
             On.Celeste.Leader.LoseFollower += Leader_LoseFollower;
             On.Celeste.Leader.LoseFollowers += Leader_LoseFollowers;
             On.Celeste.Strawberry.Added += Strawberry_Added;
-            On.Celeste.LevelEnter.Go += LevelEnter_Go;
         }
 
         public override void Unload()
@@ -208,7 +294,6 @@ namespace Celeste.Mod.CelesteRTDataProvider
             On.Celeste.Leader.LoseFollower -= Leader_LoseFollower;
             On.Celeste.Leader.LoseFollowers -= Leader_LoseFollowers;
             On.Celeste.Strawberry.Added -= Strawberry_Added;
-            On.Celeste.LevelEnter.Go -= LevelEnter_Go;
             serverInstance.Dispose();
         }
     }

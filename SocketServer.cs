@@ -61,24 +61,22 @@ namespace Celeste.Mod.CelesteRTDataProvider
 
         public void reconnectClient()
         {
-            Logger.Log("CelesteRTData.SocketServer", "Client is disconnected. Retrying for new connection...");
             client = server.AcceptTcpClient();
             stream = client.GetStream();
-            Logger.Log("CelesteRTData.SocketServer", "Client Connected");
             if (lastMessage !=  "")
             {
                 isNewConnection = true;
             }    
         }
 
-        public void clientLoop()
+        public void startServer(int port)
         {
-            Logger.SetLogLevel("CelesteRTData.SocketServer", LogLevel.Info);
-            Logger.Log("CelesteRTData.SocketServer", "Initialize server...");
+            string ip = "127.0.0.1";
+            server = new TcpListener(IPAddress.Parse(ip), port);
+            server.Start();
             string swkaSha1Base64 = "";
             byte[] response = new byte[1];
             client = server.AcceptTcpClient();
-            Logger.Log("CelesteRTData.SocketServer", "Client Connected");
 
             stream = client.GetStream();
 
@@ -86,17 +84,22 @@ namespace Celeste.Mod.CelesteRTDataProvider
             {
                 try
                 {
-                    while (!stream.DataAvailable && IsConnected()) ;
+                    // Do not run logic if client is currently connected and there is no data stream (post-get)
+                    while (!stream.DataAvailable && IsConnected());
+
+                    // Automatically handle reconnects
                     if (!IsConnected())
                     {
                         reconnectClient();
                     }
+
                     byte[] bytes = new byte[client.Available];
                     stream.Read(bytes, 0, client.Available);
                     string s = Encoding.UTF8.GetString(bytes);
 
                     if (Regex.IsMatch(s, "^GET", RegexOptions.IgnoreCase))
                     {
+                        // Required connection logic
                         string swk = Regex.Match(s, "Sec-WebSocket-Key: (.*)").Groups[1].Value.Trim();
                         string swka = swk + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
                         byte[] swkaSha1 = System.Security.Cryptography.SHA1.Create().ComputeHash(Encoding.UTF8.GetBytes(swka));
@@ -109,7 +112,8 @@ namespace Celeste.Mod.CelesteRTDataProvider
                         stream.Write(response, 0, response.Length);
                         if (isNewConnection)
                         {
-                            Logger.Log("CelesteRTData.SocketServer", "Found cached message in server. Sending to client...");
+                            // Added this block to send cached messages to the client.
+                            // If we've already sent data recently, it will send whatever the most recently saved piece is.
                             isNewConnection = false;
                             sendMessage(lastMessage);
                         }
@@ -117,20 +121,10 @@ namespace Celeste.Mod.CelesteRTDataProvider
                 }
                 catch
                 {
-                    Logger.Log("CelesteRTData.SocketServer", "Caught error. Reconnecting to client...");
                     reconnectClient();
                 }
 
             }
-        }
-
-        public void startServer(int port)
-        {
-
-            string ip = "127.0.0.1";
-            server = new TcpListener(IPAddress.Parse(ip), port);
-            server.Start();
-            clientLoop();
         }
 
         public void sendMessage(string inputText)
